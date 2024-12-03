@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PokemonApp</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+</head>
+<body class="bg-light">
+<div class="container">
+<!-- navigation -->
+<ul class="nav justify-content-between align-items-center py-3">
+<li class="nav-item">
+<h1>ポケモン図鑑</h1>
+</li>
+<li class="nav-item">
+<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#searchModal">ポケモン検索</button>
+<button class="btn btn-success" id="showRankingBtn" data-bs-toggle="modal" data-bs-target="#rankingModal">検索ランキング</button>
+</li>
+</ul>
+<!-- メインコンテンツ -->
+<div class="row">
+    {% for pokemon in pokemons %}
+    <div class="col-md-3 mb-4">
+        <div class="card text-center">
+            <div class="card-header text-bg-primary">
+                <h5 class="card-title mb-0">{{ pokemon['name'] }}</h5>
+            </div>
+        <a href="{{ url_for('show', id=pokemon['id']) }}"><img src="{{ pokemon['image_url'] }}" alt="ポケモンの画像がはいります" class="img-fluid"></a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+    <!-- ポケモン検索モーダル -->
+    <div class="modal fade" id="searchModal" aria-labelledby="searchModalLabel" aria-hidden=""true>
+    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+    <div class="modal-header">
+    <h5 class="modal-title" id="searchModalLabel">ポケモン検索</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+    <form action="{{ url_for('search') }}" method="get">
+    <div class="mb-3">
+    <label for="pokemonName" class="form-label">ポケモン名</label>
+    <input type="text" name="name" id="pokemonName" class="form-control" placeholder="例：ピカチュウ">
+    <input type="submit" value="検索" class="btn btn-primary w-100">
+    </div>
+    </form>
+    </div>
+    </div>
+    </div>
+    </div>
+
+ <!-- 検索ランキングモーダル -->
+    <div class="modal fade" id="rankingModal" aria-labelledby="rankingModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="rankingModalLabel">検索ランキング</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <canvas id="rankingChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+			    // グラフのインスタンスを格納する変数を初期化
+        let chartInstance = null;
+
+        // 検索ランキングボタンをクリックしたときの処理
+        document.getElementById('showRankingBtn').addEventListener('click', function () {
+            // サーバーにGETリクエストを送信して最新のランキングデータを取得
+            fetch(`/ranking?timestamp=${new Date().getTime()}`) // キャッシュ回避用クエリを追加
+                .then(response => response.json()) // レスポンスをJSON形式に変換
+                .then(data => { // データを受け取ったら処理を実行
+                    // データからポケモン名と検索回数を抽出
+                    const labels = data.map(item => item.name);
+                    const counts = data.map(item => item.count);
+
+                    // グラフ描画のためのCanvasコンテキストを取得
+                    const ctx = document.getElementById('rankingChart').getContext('2d');
+
+                    // 既存のグラフがあれば破棄
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    // 新しいグラフを描画
+                    chartInstance = new Chart(ctx, {
+                        type: 'bar', // 棒グラフを指定
+                        data: {
+                            labels: labels, // X軸のラベル（ポケモン名）
+                            datasets: [{
+                                label: '検索回数', // データセットのラベル
+                                data: counts, // Y軸のデータ（検索回数）
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)', // 棒の背景色
+                                borderColor: 'rgba(75, 192, 192, 1)', // 棒の枠線の色
+                                borderWidth: 1 // 枠線の幅
+                            }]
+                        },
+                        options: {
+                            responsive: true, // 画面サイズに応じて調整
+                            scales: {
+                                y: { // Y軸の設定
+                                    beginAtZero: true // Y軸を0から開始
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => console.error('ランキングデータ取得中にエラーが発生しました:', error)); // エラーハンドリング
+        });
+    </script>
+
+<!-- <script>
+        // 検索ランキングボタンをクリックしたときにデータを取得してグラフを描画
+        document.getElementById('showRankingBtn').addEventListener('click', function () {
+
+            // '/ranking' というURLにGETリクエストを送信して、サーバーからランキングデータを取得
+            fetch('/ranking')
+                .then(response => response.json())  // レスポンスをJSON形式で解析
+                .then(data => {  // 取得したデータを利用して処理を行う
+
+                    // 取得したデータの中から、ポケモン名を取り出してラベルとして使用
+                    const labels = data.map(item => item.name);
+
+                    // 取得したデータの中から、検索回数を取り出してデータとして使用
+                    const counts = data.map(item => item.count);
+
+                    // グラフを描画するためのCanvasコンテキストを取得
+                    const ctx = document.getElementById('rankingChart').getContext('2d');
+
+                    // Chart.jsライブラリを使用して棒グラフを描画
+                    new Chart(ctx, {
+                        type: 'bar',  // グラフの種類を棒グラフに設定
+                        data: {  // グラフに表示するデータ
+                            labels: labels,  // X軸のラベル（ポケモン名）
+                            datasets: [{
+                                label: '検索回数',  // データセットのラベル
+                                data: counts,  // Y軸のデータ（検索回数）
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',  // 棒グラフの背景色（透明な緑色）
+                                borderColor: 'rgba(75, 192, 192, 1)',  // 棒グラフの境界線の色（緑色）
+                                borderWidth: 1  // 棒グラフの境界線の太さ
+                            }]
+                        },
+                        options: {  // グラフのオプション設定
+                            responsive: true,  // 画面サイズに応じてグラフのサイズを自動調整
+                            scales: {  // 軸の設定
+                                y: {  // Y軸（縦軸）の設定
+                                    beginAtZero: true  // Y軸は0から始める
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => console.error('Error fetching ranking data:', error));  // データ取得時にエラーが発生した場合にエラーメッセージを表示
+        });
+    </script> -->
+
+</body>
+</html>
